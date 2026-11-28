@@ -1,6 +1,6 @@
-# Proposed metric contract
+# Metric contract
 
-These definitions will be validated against the downloaded schema before analysis.
+Implemented in `sql/03_route_month_metrics.sql` and validated for January 2025. Synthetic database tests cover missing outcomes, cancellations, diversions, and zero eligible-arrival denominators.
 
 | Metric | Numerator | Denominator / eligibility |
 | --- | --- | --- |

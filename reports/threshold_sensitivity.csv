@@ -1,0 +1,4 @@
+month,threshold,eligible_carrier_routes,covered_flights,disrupted_flights
+2025-01-01,50,3923,424876,89680
+2025-01-01,100,1550,259445,53569
+2025-01-01,200,356,94971,19593

@@ -1,11 +1,11 @@
-# SQL implementation plan
+# SQL execution order
 
-Queries will be added after source validation:
+The loader executes `01_schema.sql`, `02_transform.sql`, and `03_route_month_metrics.sql` inside one transaction. The transformation file takes a Python database parameter for the selected month; run it through `scripts/load_postgres.py`.
 
-1. `01_schema.sql`: raw staging, typed flight records, airport and carrier dimensions.
-2. `02_quality_checks.sql`: coverage, duplicate candidates, missing values, flag consistency, and load reconciliation.
-3. `03_route_month_metrics.sql`: carrier-route-month numerators and denominators.
-4. `04_priority_routes.sql`: volume-filtered comparisons and persistence across months.
-5. `05_dashboard_exports.sql`: documented tables for Tableau.
+- `01_schema.sql`: load provenance, raw analytical fields, typed flight facts, and constraints.
+- `02_transform.sql`: typed monthly insertion; duplicates fail the entire transaction.
+- `03_route_month_metrics.sql`: carrier-route-month metrics and monthly airport/carrier mapping views.
+- `04_quality_checks.sql`: source/staging/fact/aggregate reconciliation and missing/excluded arrival flags.
+- `05_priority_routes.sql`: preliminary top 20 by disrupted flight count, requiring at least 100 scheduled flights.
 
-These are planned deliverables, not existing runnable SQL files. See `docs/metrics.md` for metric definitions.
+The last two files can also run directly in a PostgreSQL client. `scripts/export_results.py` exports them alongside monthly totals and 50/100/200-flight threshold coverage checks in a consistent read-only database snapshot. Those threshold checks describe coverage changes, not full ranking stability.

@@ -1,0 +1,2 @@
+month,source_rows,staged_rows,fact_rows,metric_rows,unknown_arrivals,excluded_arrival_flags
+2025-01-01,539747,539747,539747,539747,0,0

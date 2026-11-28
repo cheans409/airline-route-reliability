@@ -1,0 +1,2 @@
+month,scheduled_flights,cancellations,diversions,eligible_arrivals,late_arrivals,unknown_arrivals,disrupted_flights,cancellation_pct,late_arrival_pct
+2025-01-01,539747,16312,1166,522269,98130,0,115608,3.02,18.79
