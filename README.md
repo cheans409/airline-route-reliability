@@ -64,4 +64,4 @@ The next analytical step is to extend the same definitions across February–Dec
 
 ## Supporting work
 
-The [SQL analysis](sql/), [January validation report](reports/january_milestone.md), and [source manifest](data/source_manifest.json) provide the evidence behind this report. Instructions for running the pipeline are in the separate [reproduction guide](docs/reproduction.md); planned work is tracked in the [project outline](docs/project_plan.md).
+The [SQL analysis](sql/), [January validation report](reports/january_milestone.md), and [source manifest](data/source_manifest.json) provide the evidence behind this report. Planned work is tracked in the [project outline](docs/project_plan.md).
