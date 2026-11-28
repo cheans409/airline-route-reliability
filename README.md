@@ -1,106 +1,67 @@
 # U.S. Airline Route Reliability
 
-**Which routes should an airline operations team prioritize for reliability improvements?**
+## January 2025 operations report
 
-An operations analytics project using official U.S. Bureau of Transportation Statistics (BTS) flight records to compare delays, cancellations, and diversions across routes, airlines, and seasons.
+Of **539,747 reported flights** in January 2025, **115,608 were cancelled, diverted, or arrived at least 15 minutes late**. Cancellations affected 3.02% of scheduled flights, while 18.79% of eligible arrivals were late. These results establish an initial baseline for identifying routes that warrant closer operational investigation.
 
-**Status: January 2025 PostgreSQL pipeline and first route metrics complete. Full-year analysis and dashboard are in progress.**
+This analysis uses official Bureau of Transportation Statistics (BTS) records to address a practical question: **where do substantial flight volumes and reliability problems overlap?** The current report covers January only. Full-year analysis and a Tableau dashboard are planned.
 
-## Business objective
+## Reliability across the reporting population
 
-Identify routes where substantial flight volume coincides with persistent reliability problems. The intended output is a transparent shortlist for operational investigation, supported by an interactive dashboard and a short decision memo. Observed associations will not be presented as proof of causes or achievable savings.
+| Measure | January 2025 result |
+| --- | ---: |
+| Reported scheduled flights | 539,747 |
+| Cancelled flights | 16,312 — 3.02% of scheduled flights |
+| Diverted flights | 1,166 |
+| Eligible arrivals | 522,269 |
+| Arrivals at least 15 minutes late | 98,130 — 18.79% of eligible arrivals |
+| Total observed disrupted flights | 115,608 |
 
-## Dataset and scope
+Eligible arrivals exclude cancellations and diversions and require an observed arrival-delay flag. This distinction matters: cancellation and late-arrival rates describe different populations and should not be added together. The disruption total counts each affected flight once.
 
-- **Source:** BTS, Reporting Carrier On-Time Performance (1987–present).
-- **Official downloads:** [Monthly ZIP archives](https://www.transtats.bts.gov/PREZIP/).
-- **Documentation:** [BTS on-time statistics](https://www.transtats.bts.gov/ot_delay/).
-- **Planned analysis window:** January–December 2025, a complete calendar year.
-- **Initial acquisition:** January 2025, with 539,747 records covering January 1–31; the downloaded file and checksum are recorded in [the source manifest](data/source_manifest.json).
-- **Grain:** one reported flight record. Routes are directional: origin → destination.
-- **Coverage:** reporting carriers' domestic operations, not every flight worldwide or every U.S. operator.
+All noncancelled, nondiverted flights in this month's data had an observed arrival-delay flag. The results therefore contain no unknown arrival outcomes within that population. [View the monthly results](reports/monthly_summary.csv).
 
-The first phase measures **flights**, not passengers. Passenger traffic from BTS T-100 may be added later after verifying carrier, geography, and period compatibility. On-time records do not directly establish passenger counts or route profitability.
+## Routes to investigate first
 
-## Questions
+The initial shortlist ranks carrier-specific directional routes by the **number of disrupted flights**, requiring at least 100 scheduled flights in the month. This emphasizes the scale of disruption while displaying the rate alongside it.
 
-1. Which sufficiently busy routes have the highest cancellation and late-arrival rates?
-2. Are poor results persistent across months or concentrated in particular seasons?
-3. How do carriers compare on shared routes, accounting for schedule and route mix?
-4. Which routes merit investigation based on both disruption frequency and affected flight volume?
+| Carrier code | Route | Scheduled flights | Disrupted flights | Disruption rate |
+| --- | --- | ---: | ---: | ---: |
+| DL | ATL → MCO | 461 | 157 | 34.06% |
+| DL | MCO → ATL | 460 | 134 | 29.13% |
+| AA | DFW → SAT | 354 | 129 | 36.44% |
+| AS | SEA → ANC | 400 | 127 | 31.75% |
 
-## Stack
+DL's ATL → MCO service had the largest disrupted-flight count among qualifying carrier-routes. Of its 157 disruptions, 143 were late arrivals and 14 were cancellations. The reverse direction also appeared near the top, making this pair a useful starting point for examining whether problems recur across months and departure times.
 
-Python for acquisition and validation; PostgreSQL for data modeling and analysis; Tableau for an operations dashboard. The initial downloader uses only Python's standard library.
+These are candidates for investigation, not a finding that any particular carrier caused or could have prevented the disruptions. The ranking does not adjust for weather, congestion, schedule mix, or other operating conditions. [View the full preliminary shortlist](reports/priority_routes.csv).
 
-## Quick start
+## What the volume threshold changes
 
-Requires Python 3.9+ and internet access. Run from the repository root:
+A minimum flight count reduces the prominence of very small groups, but also narrows the analysis. At the 100-flight threshold, the comparison includes **1,550 carrier-routes representing 259,445 flights**—less than half of the month's reported flights.
 
-```bash
-python3 scripts/download_data.py --year 2025 --month 1
-python3 scripts/inspect_data.py --year 2025 --month 1
-```
+| Minimum monthly flights per carrier-route | Qualifying carrier-routes | Flights represented |
+| --- | ---: | ---: |
+| 50 | 3,923 | 424,876 |
+| 100 | 1,550 | 259,445 |
+| 200 | 356 | 94,971 |
 
-The download script validates the ZIP and records its URL, size, SHA-256 checksum, and first-recorded timestamp. Existing local archives are reused and validated. Large source files stay outside Git; the small manifest and inspection report are versioned.
+The shortlist should therefore be read as a view of busier services, not a complete ranking of the reporting population. These checks measure coverage; stability of the rankings under different thresholds remains to be assessed. [View the threshold comparison](reports/threshold_sensitivity.csv).
 
-To acquire the planned full year when ready:
+## Data and analytical approach
 
-```bash
-for month in 1 2 3 4 5 6 7 8 9 10 11 12; do
-  python3 scripts/download_data.py --year 2025 --month "$month"
-done
-```
+The source is BTS's **Reporting Carrier On-Time Performance** dataset, covering reporting carriers' domestic operations. The January archive contains flight records dated January 1–31, 2025. It does not represent every U.S. operator or flight worldwide. Source files are available through the [official BTS archive](https://www.transtats.bts.gov/PREZIP/), with additional context in the [BTS on-time statistics documentation](https://www.transtats.bts.gov/ot_delay/).
 
-Allow several hundred MB for compressed annual data and more space for extraction. If Python reports a certificate error, configure your machine's trusted CA certificates; do not disable TLS verification.
+Python validates the archive and prepares records for PostgreSQL. SQL groups flights by month, reporting carrier, origin, and destination, preserving directional routes and keeping cancellations, diversions, and arrival-delay eligibility separate. Airport and carrier IDs are retained alongside their display codes. The [metric definitions](docs/metrics.md) document each denominator.
 
-## PostgreSQL pipeline
+Source, staging, flight, and aggregated counts all reconcile to 539,747 records. A repeated load preserved that total, and an independent calculation from the source CSV reproduced the monthly counts. Duplicate flight keys and invalid values stop the load rather than silently removing records. Tests cover missing outcomes, cancellation and diversion exclusions, zero eligible-arrival denominators, and duplicate-key rejection. [View the quality checks](reports/load_quality.csv).
 
-Requires a running PostgreSQL server (validated on PostgreSQL 18.6), `createdb`, and Python dependencies:
+## Interpretation and next steps
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-createdb airline_reliability  # Once, if the database does not already exist
-python3 scripts/load_postgres.py --year 2025 --month 1
-python3 -m unittest discover -s tests -v
-python3 scripts/export_results.py
-```
+January provides an initial operational baseline, but one month cannot establish seasonality or persistent underperformance. The analysis measures flights, not affected passengers, route profitability, or avoidable costs. It also does not identify the causes of the observed differences.
 
-The default connection uses local PostgreSQL and `dbname=airline_reliability`. Set `DATABASE_URL` for another connection; never commit credentials. Tables live in the dedicated `airline` schema. The database user needs schema/table creation privileges.
+The next analytical step is to extend the same definitions across February–December 2025 and test whether the shortlisted routes remain prominent. Comparisons across months, departure times, and carriers serving the same route would help distinguish recurring patterns from isolated periods. A Tableau dashboard will then present the validated results and support further investigation.
 
-Each load verifies the manifest checksum and source fields, then atomically replaces only its selected month. Duplicate flight keys, invalid values, and mismatched totals abort the transaction, preserving the prior successful load. Raw analytical fields remain text in staging; the complete source records remain in the original ZIP, identified by checksum and CSV data-row number (starting at 1, excluding the header). No rows are silently discarded. Airport and carrier mappings are month-specific views rather than permanent code-to-ID assumptions.
+## Supporting work
 
-Exports include [monthly totals](reports/monthly_summary.csv), [quality checks](reports/load_quality.csv), [a preliminary route shortlist](reports/priority_routes.csv), and [volume-threshold sensitivity](reports/threshold_sensitivity.csv). The shortlist ranks **observed disrupted flight counts** among carrier-routes with at least 100 monthly flights; it does not estimate avoidable disruptions or passenger impacts.
-
-## Repository structure
-
-```text
- data/
-   raw/                   # Downloaded official archives (ignored)
-   processed/             # Cleaned outputs (ignored)
-   source_manifest.json   # Source URLs and checksums
- docs/
-   project_plan.md        # Milestones and acceptance criteria
-   metrics.md             # Proposed denominators and comparison rules
- scripts/
-   download_data.py       # Monthly acquisition and integrity checks
-   inspect_data.py        # Schema, date coverage, and row-count checks
- sql/                     # Schema, transformation, QA, and route metrics
- dashboards/              # Dashboard specification; workbook will follow
- reports/                 # Data inspection and eventual decision memo
-```
-
-## Milestones
-
-- [x] Select an official dataset and define the business question.
-- [x] Build acquisition tooling and document the source.
-- [x] Inspect January: required columns present and dates within the expected month.
-- [ ] Acquire and validate all 12 months.
-- [x] Build PostgreSQL staging and analytical tables for January.
-- [x] Validate January metric denominators, unique flight keys, and repeat loading.
-- [ ] Analyze routes, carriers, and seasonality.
-- [ ] Publish a Tableau dashboard and evidence-backed recommendations.
-
-See [the project plan](docs/project_plan.md) and [metric definitions](docs/metrics.md). January results are preliminary; they cannot establish seasonal patterns or annual performance. See [the January milestone report](reports/january_milestone.md).
+The [SQL analysis](sql/), [January validation report](reports/january_milestone.md), and [source manifest](data/source_manifest.json) provide the evidence behind this report. Instructions for running the pipeline are in the separate [reproduction guide](docs/reproduction.md); planned work is tracked in the [project outline](docs/project_plan.md).
